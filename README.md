@@ -5,10 +5,12 @@ Manage Zendesk Support resources (groups, views, agents, triggers, trigger categ
 ## Project Structure
 
 ```
-├── provider/                        # Custom Terraform provider (Go)
-│   ├── main.go                      # Entry point
-│   ├── go.mod / go.sum              # Go module
-│   └── internal/provider/           # Resource & data source implementations
+├── main.go                          # Provider entry point
+├── go.mod / go.sum                  # Go module
+├── generate.go                      # //go:generate directive for tfplugindocs
+├── internal/provider/               # Resource & data source implementations
+├── templates/                       # tfplugindocs source templates (e.g. index.md.tmpl)
+├── docs/                            # Registry documentation (generated; index.md is rendered from templates/)
 ├── scripts/
 │   ├── assimilate.sh                # Import existing Zendesk resources into Terraform
 │   └── generators/                  # Bash generators that convert API JSON to .tf files
@@ -51,7 +53,6 @@ infrastructure/
 ## Building the Provider
 
 ```bash
-cd provider
 go build -o terraform-provider-zendesk .
 ```
 
@@ -64,13 +65,13 @@ go build -o terraform-provider-zendesk .
    ```hcl
    provider_installation {
      dev_overrides {
-       "yourorg/zendesk" = "/path/to/terraform-provider-zendesk/provider"
+       "yourorg/zendesk" = "/path/to/terraform-provider-zendesk"
      }
      direct {}
    }
    ```
 
-   The address must match the `Address` field in `provider/main.go`.
+   The address must match the `Address` field in `main.go`.
 
 3. **Export the Zendesk API token** (subdomain and email are read from each environment's `provider.tf`):
 
