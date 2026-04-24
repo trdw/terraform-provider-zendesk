@@ -1,0 +1,36 @@
+---
+page_title: "Zendesk Provider"
+subcategory: ""
+description: |-
+  Manage Zendesk Support configuration (groups, views, agents, triggers, trigger categories, automations, macros, custom roles, brands, ticket forms, custom ticket fields, custom user fields) as Terraform resources.
+---
+
+# Zendesk Provider
+
+The Zendesk provider manages configuration objects in a Zendesk Support instance via the [Zendesk REST API](https://developer.zendesk.com/api-reference/ticketing/introduction/). Every supported object has both a resource (for managed configuration) and a data source (for looking up existing objects by id or natural key).
+
+## Example Usage
+
+```terraform
+terraform {
+  required_providers {
+    zendesk = {
+      source = "yourorg/zendesk"
+    }
+  }
+}
+
+provider "zendesk" {
+  subdomain = "my-organization"
+  email     = "admin@example.com"
+  api_token = var.zendesk_api_token
+}
+
+resource "zendesk_group" "support" {
+  name = "Support"
+}
+```
+
+Credentials can also be supplied via environment variables: `ZENDESK_SUBDOMAIN`, `ZENDESK_EMAIL`, `ZENDESK_API_TOKEN`.
+
+{{ .SchemaMarkdown | trimspace }}
