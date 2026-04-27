@@ -12,7 +12,9 @@ Manage Zendesk Support resources (groups, views, agents, triggers, trigger categ
 ├── templates/                       # tfplugindocs source templates (e.g. index.md.tmpl)
 ├── docs/                            # Registry documentation (generated; index.md is rendered from templates/)
 ├── scripts/
-│   ├── assimilate.sh                # Import existing Zendesk resources into Terraform
+│   ├── assimilate.sh                # Import a single Zendesk resource into Terraform
+│   ├── assimilate_all.sh            # Import every resource of one classification (e.g. all ticket fields)
+│   ├── compare_ticket_fields.sh     # Diff Zendesk's ticket fields against terraform state
 │   └── generators/                  # Bash generators that convert API JSON to .tf files
 │       ├── automation.sh            # zendesk_automation
 │       ├── brand.sh                 # zendesk_brand
@@ -104,10 +106,12 @@ The only required environment variable is `TF_VAR_zendesk_api_token` — the sam
 ### Usage
 
 ```bash
-./scripts/assimilate.sh <infra-dir> <zendesk-admin-url>
+./scripts/assimilate.sh <infra-dir> <zendesk-admin-url> [--related-resources=y|n]
 ```
 
 The first argument is the path to the target Terraform root module (its `provider.tf` must exist). The second argument is the full Zendesk admin URL for the resource.
+
+`--related-resources` controls whether the script also imports resources that the target depends on (group members for a group, custom ticket fields and restricted brands for a ticket form). Pass `y`, `yes`, or `true` to opt in non-interactively; omit it to be prompted. Anything else is treated as a no.
 
 ### Examples
 
@@ -141,7 +145,23 @@ Hyphen or underscore variants in the path (e.g. `ticket-forms` vs `ticket_forms`
 | `/admin/people/team/members/<id>`                           | user              |
 | `/admin/account/brand_management/brands/<id>`               | brand             |
 
-When importing a **group**, the script will prompt to also import group members and their memberships.
+When importing a **group**, the script will prompt to also import group members and their memberships. When importing a **ticket form**, it will prompt to also import each custom ticket field referenced by the form and each brand listed in `restricted_brand_ids`. System fields (Subject, Status, Priority, Custom status, etc. — anything with `removable: false`) are not imported, but a small `data "zendesk_ticket_field"` block is written for each so the form's `ticket_field_ids` array is fully reference-based: `data.zendesk_ticket_field.<name>.id` for system fields, `zendesk_ticket_field.<name>.id` for custom fields, `zendesk_brand.<name>.id` for brands.
+
+### Bulk Assimilation
+
+```bash
+./scripts/assimilate_all.sh <infra-dir> <zendesk-admin-list-url>
+```
+
+Given a "list page" URL (e.g. `.../admin/objects-rules/tickets/ticket-fields` with no trailing ID), pages through the matching API endpoint and calls `assimilate.sh` once per resource with `--related-resources=y`. IDs already tracked in terraform state are skipped, so the script is safe to re-run.
+
+### Comparing Ticket Fields
+
+```bash
+./scripts/compare_ticket_fields.sh <infra-dir>
+```
+
+Lists every `ticket_field` in Zendesk, lists every `zendesk_ticket_field` (resource or data source) tracked in terraform state for the given infra dir, and prints what's in one but not the other. Useful for finding fields that haven't been assimilated yet, or local entries pointing at IDs that no longer exist upstream.
 
 ## Generators
 

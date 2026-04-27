@@ -12,15 +12,15 @@ generate_ticket_field() {
 
   local tf=""
   tf+="resource \"zendesk_ticket_field\" \"${res_name}\" {\n"
-  tf+="  type  = \"${type}\"\n"
-  tf+="  title = \"${title}\"\n"
+  tf+="  type  = \"$(hcl_escape "$type")\"\n"
+  tf+="  title = \"$(hcl_escape "$title")\"\n"
 
   _emit_field_str() {
     local jq_path="$1" tf_name="$2"
     local val
     val=$(echo "$json" | jq -r "${jq_path} // empty")
     if [[ -n "$val" && "$val" != "null" ]]; then
-      tf+="  ${tf_name} = \"${val}\"\n"
+      tf+="  ${tf_name} = \"$(hcl_escape "$val")\"\n"
     fi
   }
 
@@ -52,7 +52,14 @@ generate_ticket_field() {
   _emit_field_bool ".ticket_field.editable_in_portal"       "editable_in_portal"
   _emit_field_bool ".ticket_field.collapsed_for_agents"     "collapsed_for_agents"
   _emit_field_int  ".ticket_field.position"                 "position"
-  _emit_field_str  ".ticket_field.regexp_for_validation"    "regexp_for_validation"
+  # regexp_for_validation only applies when type is "regexp".
+  if [[ "$type" == "regexp" ]]; then
+    local regexp_val
+    regexp_val=$(echo "$json" | jq -r '.ticket_field.regexp_for_validation // empty')
+    if [[ -n "$regexp_val" && "$regexp_val" != "null" ]]; then
+      tf+="  regexp_for_validation = \"$(hcl_escape "$regexp_val")\"\n"
+    fi
+  fi
   _emit_field_str  ".ticket_field.tag"                      "tag"
   _emit_field_int  ".ticket_field.sub_type_id"              "sub_type_id"
   _emit_field_str  ".ticket_field.relationship_target_type" "relationship_target_type"
@@ -67,8 +74,8 @@ generate_ticket_field() {
       opt_name=$(echo "$json"  | jq -r ".ticket_field.custom_field_options[$i].name")
       opt_value=$(echo "$json" | jq -r ".ticket_field.custom_field_options[$i].value")
       tf+="    {\n"
-      tf+="      name  = \"${opt_name}\"\n"
-      tf+="      value = \"${opt_value}\"\n"
+      tf+="      name  = \"$(hcl_escape "$opt_name")\"\n"
+      tf+="      value = \"$(hcl_escape "$opt_value")\"\n"
       tf+="    },\n"
     done
     tf+="  ]\n"

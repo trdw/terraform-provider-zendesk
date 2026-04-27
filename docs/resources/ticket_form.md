@@ -26,13 +26,13 @@ Manages a Zendesk ticket form.
 - `display_name` (String) The name of the form displayed to end users.
 - `end_user_visible` (Boolean) Whether the form is visible to end users.
 - `in_all_brands` (Boolean) Whether the form is available for use in all brands.
-- `position` (Number) The position of this form in the dropdown.
-- `restricted_brand_ids` (List of Number) IDs of all brands that this ticket form is restricted to.
+- `restricted_brand_ids` (Set of Number) IDs of all brands that this ticket form is restricted to. Order-independent.
 - `ticket_field_ids` (List of Number) IDs of ticket fields in this form. Order determines display order.
 
 ### Read-Only
 
 - `created_at` (String)
 - `id` (String) The ID of this resource.
+- `position` (Number) The position of this form in the dropdown. Read-only — Zendesk assigns and reshuffles this on create. Use the dedicated reorder endpoint to change it.
 - `updated_at` (String)
 - `url` (String)

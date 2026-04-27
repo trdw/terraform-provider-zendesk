@@ -42,4 +42,4 @@ terraform.rc
 .vscode
 
 # Compiled provider binary
-provider/terraform-provider-zendesk
+/terraform-provider-zendesk

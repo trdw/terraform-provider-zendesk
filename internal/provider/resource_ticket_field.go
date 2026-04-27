@@ -192,7 +192,6 @@ func (r *TicketFieldResource) Schema(_ context.Context, _ resource.SchemaRequest
 			},
 			"custom_field_options": schema.ListNestedAttribute{
 				Optional:    true,
-				Computed:    true,
 				Description: "Options for dropdown (tagger), multiselect fields.",
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{

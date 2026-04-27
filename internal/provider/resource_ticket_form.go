@@ -33,7 +33,7 @@ type TicketFormResourceModel struct {
 	EndUserVisible     types.Bool   `tfsdk:"end_user_visible"`
 	Position           types.Int64  `tfsdk:"position"`
 	InAllBrands        types.Bool   `tfsdk:"in_all_brands"`
-	RestrictedBrandIDs types.List   `tfsdk:"restricted_brand_ids"`
+	RestrictedBrandIDs types.Set    `tfsdk:"restricted_brand_ids"`
 	TicketFieldIDs     types.List   `tfsdk:"ticket_field_ids"`
 	URL                types.String `tfsdk:"url"`
 	CreatedAt          types.String `tfsdk:"created_at"`
@@ -103,20 +103,19 @@ func (r *TicketFormResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Description: "Whether the form is visible to end users.",
 			},
 			"position": schema.Int64Attribute{
-				Optional:    true,
 				Computed:    true,
-				Description: "The position of this form in the dropdown.",
+				Description: "The position of this form in the dropdown. Read-only — Zendesk assigns and reshuffles this on create. Use the dedicated reorder endpoint to change it.",
 			},
 			"in_all_brands": schema.BoolAttribute{
 				Optional:    true,
 				Computed:    true,
 				Description: "Whether the form is available for use in all brands.",
 			},
-			"restricted_brand_ids": schema.ListAttribute{
+			"restricted_brand_ids": schema.SetAttribute{
 				Optional:    true,
 				Computed:    true,
 				ElementType: types.Int64Type,
-				Description: "IDs of all brands that this ticket form is restricted to.",
+				Description: "IDs of all brands that this ticket form is restricted to. Order-independent.",
 			},
 			"ticket_field_ids": schema.ListAttribute{
 				Optional:    true,
@@ -257,6 +256,28 @@ func sliceToInt64List(s []int64) types.List {
 	return l
 }
 
+func int64SetToSlice(ctx context.Context, set types.Set, diags *diag.Diagnostics) []int64 {
+	if set.IsNull() || set.IsUnknown() {
+		return nil
+	}
+	var out []int64
+	d := set.ElementsAs(ctx, &out, false)
+	diags.Append(d...)
+	return out
+}
+
+func sliceToInt64Set(s []int64) types.Set {
+	if s == nil {
+		return types.SetNull(types.Int64Type)
+	}
+	vals := make([]attr.Value, len(s))
+	for i, v := range s {
+		vals[i] = types.Int64Value(v)
+	}
+	set, _ := types.SetValue(types.Int64Type, vals)
+	return set
+}
+
 func buildTicketFormAPI(ctx context.Context, plan *TicketFormResourceModel, diags *diag.Diagnostics) ticketFormAPIObject {
 	obj := ticketFormAPIObject{
 		Name: plan.Name.ValueString(),
@@ -276,14 +297,11 @@ func buildTicketFormAPI(ctx context.Context, plan *TicketFormResourceModel, diag
 		v := plan.EndUserVisible.ValueBool()
 		obj.EndUserVisible = &v
 	}
-	if !plan.Position.IsNull() && !plan.Position.IsUnknown() {
-		obj.Position = plan.Position.ValueInt64()
-	}
 	if !plan.InAllBrands.IsNull() && !plan.InAllBrands.IsUnknown() {
 		v := plan.InAllBrands.ValueBool()
 		obj.InAllBrands = &v
 	}
-	obj.RestrictedBrandIDs = int64ListToSlice(ctx, plan.RestrictedBrandIDs, diags)
+	obj.RestrictedBrandIDs = int64SetToSlice(ctx, plan.RestrictedBrandIDs, diags)
 	obj.TicketFieldIDs = int64ListToSlice(ctx, plan.TicketFieldIDs, diags)
 	return obj
 }
@@ -313,7 +331,7 @@ func mapTicketFormToState(f *ticketFormAPIObject, m *TicketFormResourceModel) {
 	} else {
 		m.InAllBrands = types.BoolValue(false)
 	}
-	m.RestrictedBrandIDs = sliceToInt64List(f.RestrictedBrandIDs)
+	m.RestrictedBrandIDs = sliceToInt64Set(f.RestrictedBrandIDs)
 	m.TicketFieldIDs = sliceToInt64List(f.TicketFieldIDs)
 	m.URL = types.StringValue(f.URL)
 	m.CreatedAt = types.StringValue(f.CreatedAt)

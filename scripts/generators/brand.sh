@@ -8,7 +8,7 @@ generate_brand() {
 
   name=$(echo "$json" | jq -r '.brand.name')
   subdomain=$(echo "$json" | jq -r '.brand.subdomain')
-  active=$(echo "$json" | jq -r '.brand.active // true')
+  active=$(jq_bool "$json" '.brand.active' true)
   brand_url=$(echo "$json" | jq -r '.brand.brand_url // empty')
   host_mapping=$(echo "$json" | jq -r '.brand.host_mapping // empty')
   has_help_center=$(echo "$json" | jq -r '.brand.has_help_center // empty')
@@ -17,20 +17,20 @@ generate_brand() {
 
   local tf=""
   tf+="resource \"zendesk_brand\" \"${res_name}\" {\n"
-  tf+="  name      = \"${name}\"\n"
-  tf+="  subdomain = \"${subdomain}\"\n"
+  tf+="  name      = \"$(hcl_escape "$name")\"\n"
+  tf+="  subdomain = \"$(hcl_escape "$subdomain")\"\n"
   tf+="  active    = ${active}\n"
   if [[ -n "$brand_url" ]]; then
-    tf+="  brand_url = \"${brand_url}\"\n"
+    tf+="  brand_url = \"$(hcl_escape "$brand_url")\"\n"
   fi
   if [[ -n "$host_mapping" ]]; then
-    tf+="  host_mapping = \"${host_mapping}\"\n"
+    tf+="  host_mapping = \"$(hcl_escape "$host_mapping")\"\n"
   fi
   if [[ -n "$has_help_center" && "$has_help_center" != "null" ]]; then
     tf+="  has_help_center = ${has_help_center}\n"
   fi
   if [[ -n "$signature_template" ]]; then
-    tf+="  signature_template = \"${signature_template}\"\n"
+    tf+="  signature_template = \"$(hcl_escape "$signature_template")\"\n"
   fi
   tf+="}"
 

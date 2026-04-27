@@ -8,7 +8,7 @@ generate_group() {
 
   name=$(echo "$json" | jq -r '.group.name')
   description=$(echo "$json" | jq -r '.group.description // ""')
-  is_public=$(echo "$json" | jq -r '.group.is_public // true')
+  is_public=$(jq_bool "$json" '.group.is_public' true)
   res_name=$(to_snake_case "$name")
 
   cat <<EOTF
