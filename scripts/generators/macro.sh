@@ -11,15 +11,17 @@ _format_macro_action_value() {
   val_type=$(echo "$json" | jq -r ".macro.actions[$index].value | type")
 
   if [[ "$val_type" == "array" ]]; then
-    local elements
-    elements=$(echo "$json" | jq -r ".macro.actions[$index].value[] | @json")
+    # See trigger.sh _format_action_value — joining inside jq prevents the
+    # external sed from corrupting strings that contain commas, and the
+    # backslash-doubling lets @json escapes survive `echo -e`.
     local joined
-    joined=$(echo "$elements" | paste -sd',' - | sed 's/,/, /g')
+    joined=$(echo "$json" | jq -r ".macro.actions[$index].value | map(@json) | join(\", \")")
+    joined="${joined//\\/\\\\}"
     echo "jsonencode([${joined}])"
   else
     local val
     val=$(echo "$json" | jq -r ".macro.actions[$index].value // \"\"")
-    echo "\"${val}\""
+    echo "\"$(hcl_escape "$val")\""
   fi
 }
 
@@ -34,10 +36,10 @@ generate_macro() {
 
   local tf=""
   tf+="resource \"zendesk_macro\" \"${res_name}\" {\n"
-  tf+="  title  = \"${title}\"\n"
+  tf+="  title  = \"$(hcl_escape "$title")\"\n"
   tf+="  active = ${active}\n"
   if [[ -n "$description" ]]; then
-    tf+="  description = \"${description}\"\n"
+    tf+="  description = \"$(hcl_escape "$description")\"\n"
   fi
 
   # Actions
@@ -50,7 +52,7 @@ generate_macro() {
       field=$(echo "$json" | jq -r ".macro.actions[$i].field")
       formatted_value=$(_format_macro_action_value "$json" "$i")
       tf+="    {\n"
-      tf+="      field = \"${field}\"\n"
+      tf+="      field = \"$(hcl_escape "$field")\"\n"
       tf+="      value = ${formatted_value}\n"
       tf+="    },\n"
     done
@@ -65,7 +67,7 @@ generate_macro() {
     r_type=$(echo "$json" | jq -r '.macro.restriction.type')
     r_id=$(echo "$json" | jq -r '.macro.restriction.id')
     tf+="\n  restriction = {\n"
-    tf+="    type = \"${r_type}\"\n"
+    tf+="    type = \"$(hcl_escape "$r_type")\"\n"
     tf+="    id   = ${r_id}\n"
     tf+="  }\n"
   fi

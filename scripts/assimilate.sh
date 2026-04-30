@@ -305,9 +305,34 @@ if [[ "$RESOURCE_TYPE" == "ticket_form" ]]; then
   fi
 fi
 
+# For triggers/automations, build a resource map from current terraform
+# state so the generator can replace raw IDs with `zendesk_<type>.<name>.id`
+# references in conditions and actions.
+RESOURCE_MAPS_JSON='{}'
+if [[ "$RESOURCE_TYPE" == "trigger" || "$RESOURCE_TYPE" == "automation" ]]; then
+  echo "==> Reading terraform state for cross-resource references..."
+  if STATE_JSON=$(cd "$INFRA_DIR" && terraform show -json 2>&1); then
+    RESOURCE_MAPS_JSON=$(echo "$STATE_JSON" | jq '
+      [.values.root_module.resources[]?
+       | select(.type | startswith("zendesk_"))]
+      | reduce .[] as $r ({};
+          .[$r.type | ltrimstr("zendesk_")][$r.values.id | tostring] =
+            (if $r.mode == "data"
+              then "data.\($r.type).\($r.name)"
+              else "\($r.type).\($r.name)"
+             end)
+        )
+    ' 2>/dev/null || echo '{}')
+  fi
+fi
+
 echo "==> Generating Terraform file..."
 if [[ "$RESOURCE_TYPE" == "ticket_form" ]]; then
   TF_CONTENT=$(generate_ticket_form "$API_RESPONSE" "$TICKET_FIELD_MAP" "$BRAND_MAP")
+elif [[ "$RESOURCE_TYPE" == "trigger" ]]; then
+  TF_CONTENT=$(generate_trigger "$API_RESPONSE" "$RESOURCE_MAPS_JSON")
+elif [[ "$RESOURCE_TYPE" == "automation" ]]; then
+  TF_CONTENT=$(generate_automation "$API_RESPONSE" "$RESOURCE_MAPS_JSON")
 else
   TF_CONTENT=$(generate_${RESOURCE_TYPE} "$API_RESPONSE")
 fi

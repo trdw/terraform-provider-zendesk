@@ -160,14 +160,14 @@ func (r *CustomRoleResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Computed:    true,
 				Description: "Permissions configuration for the role.",
 				Attributes: map[string]schema.Attribute{
-					"assign_tickets_to_any_group": schema.BoolAttribute{Optional: true, Computed: true},
-					"chat_access":                 schema.BoolAttribute{Optional: true, Computed: true},
+					"assign_tickets_to_any_group": schema.BoolAttribute{Computed: true, Description: "Read-only — derived by Zendesk from other settings."},
+					"chat_access":                 schema.BoolAttribute{Computed: true, Description: "Read-only — derived by Zendesk from other settings."},
 					"end_user_list_access":         schema.StringAttribute{Optional: true, Computed: true, Description: "full, none"},
 					"end_user_profile_access":      schema.StringAttribute{Optional: true, Computed: true, Description: "edit, edit-within-org, full, readonly"},
 					"explore_access":               schema.StringAttribute{Optional: true, Computed: true, Description: "edit, full, none, readonly"},
 					"forum_access":                 schema.StringAttribute{Optional: true, Computed: true, Description: "edit-topics, full, readonly"},
-					"group_access":                schema.BoolAttribute{Optional: true, Computed: true},
-					"light_agent":                 schema.BoolAttribute{Optional: true, Computed: true},
+					"group_access":                schema.BoolAttribute{Computed: true, Description: "Read-only — derived by Zendesk from group-management permissions."},
+					"light_agent":                 schema.BoolAttribute{Computed: true, Description: "Read-only — set via the role's role_type, not this attribute."},
 					"macro_access":                schema.StringAttribute{Optional: true, Computed: true, Description: "full, manage-group, manage-personal, readonly"},
 					"manage_business_rules":        schema.BoolAttribute{Optional: true, Computed: true},
 					"manage_contextual_workspaces": schema.BoolAttribute{Optional: true, Computed: true},
@@ -178,9 +178,9 @@ func (r *CustomRoleResource) Schema(_ context.Context, _ resource.SchemaRequest,
 					"manage_ticket_fields":         schema.BoolAttribute{Optional: true, Computed: true},
 					"manage_ticket_forms":          schema.BoolAttribute{Optional: true, Computed: true},
 					"manage_user_fields":           schema.BoolAttribute{Optional: true, Computed: true},
-					"moderate_forums":              schema.BoolAttribute{Optional: true, Computed: true},
+					"moderate_forums":              schema.BoolAttribute{Computed: true, Description: "Read-only — derived by Zendesk from other settings."},
 					"organization_editing":         schema.BoolAttribute{Optional: true, Computed: true},
-					"organization_notes_editing":   schema.BoolAttribute{Optional: true, Computed: true},
+					"organization_notes_editing":   schema.BoolAttribute{Computed: true, Description: "Read-only — derived by Zendesk from organization_editing."},
 					"report_access":               schema.StringAttribute{Optional: true, Computed: true, Description: "full, none, readonly"},
 					"side_conversation_create":     schema.BoolAttribute{Optional: true, Computed: true},
 					"ticket_access":               schema.StringAttribute{Optional: true, Computed: true, Description: "all, assigned-only, within-groups, within-groups-and-public"},
@@ -318,12 +318,8 @@ func buildCustomRoleAPI(plan *CustomRoleResourceModel) customRoleAPIObject {
 		cfg := &customRoleConfigAPI{}
 		c := plan.Configuration
 
-		if !c.AssignTicketsToAnyGroup.IsNull() {
-			cfg.AssignTicketsToAnyGroup = boolPtr(c.AssignTicketsToAnyGroup.ValueBool())
-		}
-		if !c.ChatAccess.IsNull() {
-			cfg.ChatAccess = boolPtr(c.ChatAccess.ValueBool())
-		}
+		// assign_tickets_to_any_group and chat_access are read-only on the
+		// Zendesk API — never send them.
 		if !c.EndUserListAccess.IsNull() {
 			cfg.EndUserListAccess = c.EndUserListAccess.ValueString()
 		}
@@ -336,12 +332,7 @@ func buildCustomRoleAPI(plan *CustomRoleResourceModel) customRoleAPIObject {
 		if !c.ForumAccess.IsNull() {
 			cfg.ForumAccess = c.ForumAccess.ValueString()
 		}
-		if !c.GroupAccess.IsNull() {
-			cfg.GroupAccess = boolPtr(c.GroupAccess.ValueBool())
-		}
-		if !c.LightAgent.IsNull() {
-			cfg.LightAgent = boolPtr(c.LightAgent.ValueBool())
-		}
+		// group_access and light_agent are read-only on the Zendesk API.
 		if !c.MacroAccess.IsNull() {
 			cfg.MacroAccess = c.MacroAccess.ValueString()
 		}
@@ -372,14 +363,10 @@ func buildCustomRoleAPI(plan *CustomRoleResourceModel) customRoleAPIObject {
 		if !c.ManageUserFields.IsNull() {
 			cfg.ManageUserFields = boolPtr(c.ManageUserFields.ValueBool())
 		}
-		if !c.ModerateForums.IsNull() {
-			cfg.ModerateForums = boolPtr(c.ModerateForums.ValueBool())
-		}
+		// moderate_forums and organization_notes_editing are read-only on
+		// the Zendesk API.
 		if !c.OrganizationEditing.IsNull() {
 			cfg.OrganizationEditing = boolPtr(c.OrganizationEditing.ValueBool())
-		}
-		if !c.OrganizationNotesEditing.IsNull() {
-			cfg.OrganizationNotesEditing = boolPtr(c.OrganizationNotesEditing.ValueBool())
 		}
 		if !c.ReportAccess.IsNull() {
 			cfg.ReportAccess = c.ReportAccess.ValueString()

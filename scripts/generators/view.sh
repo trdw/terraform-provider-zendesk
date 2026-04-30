@@ -12,7 +12,7 @@ generate_view() {
 
   local tf=""
   tf+="resource \"zendesk_view\" \"${res_name}\" {\n"
-  tf+="  title  = \"${title}\"\n"
+  tf+="  title  = \"$(hcl_escape "$title")\"\n"
   tf+="  active = ${active}\n"
 
   # Conditions: all
@@ -26,9 +26,9 @@ generate_view() {
       operator=$(echo "$json" | jq -r ".view.conditions.all[$i].operator")
       value=$(echo "$json" | jq -r ".view.conditions.all[$i].value // \"\"")
       tf+="    {\n"
-      tf+="      field    = \"${field}\"\n"
-      tf+="      operator = \"${operator}\"\n"
-      tf+="      value    = \"${value}\"\n"
+      tf+="      field    = \"$(hcl_escape "$field")\"\n"
+      tf+="      operator = \"$(hcl_escape "$operator")\"\n"
+      tf+="      value    = \"$(hcl_escape "$value")\"\n"
       tf+="    },\n"
     done
     tf+="  ]\n"
@@ -45,9 +45,9 @@ generate_view() {
       operator=$(echo "$json" | jq -r ".view.conditions.any[$i].operator")
       value=$(echo "$json" | jq -r ".view.conditions.any[$i].value // \"\"")
       tf+="    {\n"
-      tf+="      field    = \"${field}\"\n"
-      tf+="      operator = \"${operator}\"\n"
-      tf+="      value    = \"${value}\"\n"
+      tf+="      field    = \"$(hcl_escape "$field")\"\n"
+      tf+="      operator = \"$(hcl_escape "$operator")\"\n"
+      tf+="      value    = \"$(hcl_escape "$value")\"\n"
       tf+="    },\n"
     done
     tf+="  ]\n"

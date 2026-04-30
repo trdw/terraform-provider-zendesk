@@ -41,12 +41,12 @@ generate_custom_role() {
   if [[ "$has_cfg" == "true" ]]; then
     tf+="\n  configuration = {\n"
 
-    # Boolean fields
+    # Boolean fields. The following are read-only on the Zendesk API and the
+    # provider exposes them as Computed-only attributes — emitting them in
+    # config would produce "Cannot set value for this attribute" errors:
+    #   assign_tickets_to_any_group, chat_access, group_access, light_agent,
+    #   moderate_forums, organization_notes_editing.
     local bool_fields=(
-      "assign_tickets_to_any_group"
-      "chat_access"
-      "group_access"
-      "light_agent"
       "manage_business_rules"
       "manage_contextual_workspaces"
       "manage_dynamic_content"
@@ -56,9 +56,7 @@ generate_custom_role() {
       "manage_ticket_fields"
       "manage_ticket_forms"
       "manage_user_fields"
-      "moderate_forums"
       "organization_editing"
-      "organization_notes_editing"
       "side_conversation_create"
       "ticket_deletion"
       "ticket_editing"
