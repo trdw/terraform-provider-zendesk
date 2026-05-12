@@ -15,6 +15,46 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
+// orderInsensitiveListPlanModifier suppresses a planned change when the
+// planned list contains the same elements as the prior state, regardless
+// of order. Used for ticket_field_ids: the Zendesk API treats the list
+// as ordered (controls display order), but users frequently re-order it
+// without intending to update the form, and we don't want such no-op
+// reorders to produce churn.
+type orderInsensitiveListPlanModifier struct{}
+
+func (orderInsensitiveListPlanModifier) Description(_ context.Context) string {
+	return "Suppresses diff when the planned and prior-state lists contain the same elements regardless of order."
+}
+
+func (m orderInsensitiveListPlanModifier) MarkdownDescription(ctx context.Context) string {
+	return m.Description(ctx)
+}
+
+func (orderInsensitiveListPlanModifier) PlanModifyList(_ context.Context, req planmodifier.ListRequest, resp *planmodifier.ListResponse) {
+	if req.StateValue.IsNull() || req.PlanValue.IsNull() || req.PlanValue.IsUnknown() {
+		return
+	}
+	stateElems := req.StateValue.Elements()
+	planElems := req.PlanValue.Elements()
+	if len(stateElems) != len(planElems) {
+		return
+	}
+	counts := make(map[string]int, len(stateElems))
+	for _, v := range stateElems {
+		counts[v.String()]++
+	}
+	for _, v := range planElems {
+		s := v.String()
+		if counts[s] == 0 {
+			return
+		}
+		counts[s]--
+	}
+	// Same multiset of elements — snap to prior state so terraform sees no diff.
+	resp.PlanValue = req.StateValue
+}
+
 var (
 	_ resource.Resource                = &TicketFormResource{}
 	_ resource.ResourceWithImportState = &TicketFormResource{}
@@ -121,7 +161,10 @@ func (r *TicketFormResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Optional:    true,
 				Computed:    true,
 				ElementType: types.Int64Type,
-				Description: "IDs of ticket fields in this form. Order determines display order.",
+				Description: "IDs of ticket fields in this form. Order determines display order, but reordering an otherwise unchanged list does not produce a diff.",
+				PlanModifiers: []planmodifier.List{
+					orderInsensitiveListPlanModifier{},
+				},
 			},
 			"url": schema.StringAttribute{Computed: true},
 			"created_at": schema.StringAttribute{
@@ -164,7 +207,21 @@ func (r *TicketFormResource) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
+	// Zendesk auto-includes/reorders some fields server-side (e.g. system
+	// ticket fields are added to every form). If we wrote the server's list
+	// straight to state, terraform core compares it against the original
+	// plan and errors with "Provider produced inconsistent result after
+	// apply". Keep the user's planned list in state instead; any server-side
+	// drift surfaces on the next refresh as a regular plan diff.
+	plannedTicketFieldIDs := plan.TicketFieldIDs
+	plannedRestrictedBrandIDs := plan.RestrictedBrandIDs
 	mapTicketFormToState(&result.TicketForm, &plan)
+	if !plannedTicketFieldIDs.IsNull() && !plannedTicketFieldIDs.IsUnknown() {
+		plan.TicketFieldIDs = plannedTicketFieldIDs
+	}
+	if !plannedRestrictedBrandIDs.IsNull() && !plannedRestrictedBrandIDs.IsUnknown() {
+		plan.RestrictedBrandIDs = plannedRestrictedBrandIDs
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -184,6 +241,29 @@ func (r *TicketFormResource) Read(ctx context.Context, req resource.ReadRequest,
 		}
 		resp.Diagnostics.AddError("Error reading ticket form", err.Error())
 		return
+	}
+
+	// Zendesk auto-includes system fields in every form's ticket_field_ids,
+	// which makes them appear as phantom additions on every refresh. Drop
+	// server ids that were not present in prior state (and keep prior order
+	// for the ones that survive) so refresh only reflects user-relevant
+	// changes — removals via UI still show up because we keep prior ids
+	// only if the server still has them.
+	if !state.TicketFieldIDs.IsNull() && !state.TicketFieldIDs.IsUnknown() {
+		priorIDs := int64ListToSlice(ctx, state.TicketFieldIDs, &resp.Diagnostics)
+		if !resp.Diagnostics.HasError() && len(priorIDs) > 0 {
+			serverSet := make(map[int64]struct{}, len(result.TicketForm.TicketFieldIDs))
+			for _, id := range result.TicketForm.TicketFieldIDs {
+				serverSet[id] = struct{}{}
+			}
+			filtered := make([]int64, 0, len(priorIDs))
+			for _, id := range priorIDs {
+				if _, ok := serverSet[id]; ok {
+					filtered = append(filtered, id)
+				}
+			}
+			result.TicketForm.TicketFieldIDs = filtered
+		}
 	}
 
 	mapTicketFormToState(&result.TicketForm, &state)
@@ -213,7 +293,16 @@ func (r *TicketFormResource) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 
+	// See Create for why we restore the planned values after mapping.
+	plannedTicketFieldIDs := plan.TicketFieldIDs
+	plannedRestrictedBrandIDs := plan.RestrictedBrandIDs
 	mapTicketFormToState(&result.TicketForm, &plan)
+	if !plannedTicketFieldIDs.IsNull() && !plannedTicketFieldIDs.IsUnknown() {
+		plan.TicketFieldIDs = plannedTicketFieldIDs
+	}
+	if !plannedRestrictedBrandIDs.IsNull() && !plannedRestrictedBrandIDs.IsUnknown() {
+		plan.RestrictedBrandIDs = plannedRestrictedBrandIDs
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
