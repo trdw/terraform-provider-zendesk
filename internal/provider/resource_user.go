@@ -14,8 +14,9 @@ import (
 )
 
 var (
-	_ resource.Resource                = &UserResource{}
-	_ resource.ResourceWithImportState = &UserResource{}
+	_ resource.Resource                   = &UserResource{}
+	_ resource.ResourceWithImportState    = &UserResource{}
+	_ resource.ResourceWithValidateConfig = &UserResource{}
 )
 
 type UserResource struct {
@@ -332,6 +333,38 @@ func (r *UserResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 
 func (r *UserResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+func (r *UserResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config UserResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	hasCustomRole := !config.CustomRoleID.IsNull() && !config.CustomRoleID.IsUnknown()
+	if !hasCustomRole {
+		return
+	}
+
+	if !config.RestrictedAgent.IsNull() && !config.RestrictedAgent.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("restricted_agent"),
+			"restricted_agent cannot be set with custom_role_id",
+			"Zendesk derives restricted_agent from the custom role's ticket_access configuration when custom_role_id is set. "+
+				"Setting this attribute will be silently dropped by the Zendesk API. "+
+				"Remove restricted_agent and configure ticket access on the custom role instead.",
+		)
+	}
+	if !config.TicketRestriction.IsNull() && !config.TicketRestriction.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("ticket_restriction"),
+			"ticket_restriction cannot be set with custom_role_id",
+			"Zendesk derives ticket_restriction from the custom role's ticket_access configuration when custom_role_id is set. "+
+				"Setting this attribute will be silently dropped by the Zendesk API. "+
+				"Remove ticket_restriction and configure ticket access on the custom role instead.",
+		)
+	}
 }
 
 func buildUserAPI(plan *UserResourceModel) userCreateUpdateAPI {
