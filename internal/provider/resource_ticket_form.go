@@ -190,6 +190,54 @@ func (r *TicketFormResource) Configure(_ context.Context, req resource.Configure
 	r.client = client
 }
 
+// detectSilentlyDroppedFields fails the apply if Zendesk silently dropped any
+// user-managed (removable) ticket field from the form. System fields that
+// Zendesk auto-includes or rearranges are tolerated. Without this check the
+// plan-value override below would mask the drop entirely.
+func (r *TicketFormResource) detectSilentlyDroppedFields(ctx context.Context, planned, server []int64, formID string, diags *diag.Diagnostics) {
+	if len(planned) == 0 {
+		return
+	}
+	serverSet := make(map[int64]struct{}, len(server))
+	for _, id := range server {
+		serverSet[id] = struct{}{}
+	}
+	for _, id := range planned {
+		if _, ok := serverSet[id]; ok {
+			continue
+		}
+		var fieldResp struct {
+			TicketField struct {
+				Removable bool   `json:"removable"`
+				Title     string `json:"title"`
+			} `json:"ticket_field"`
+		}
+		if err := r.client.Get(fmt.Sprintf("/api/v2/ticket_fields/%d", id), &fieldResp); err != nil {
+			// Can't classify; warn but don't block — surfacing as warning lets
+			// the apply proceed while the operator investigates.
+			diags.AddWarning(
+				"Could not verify ticket field after apply",
+				fmt.Sprintf("Could not GET /api/v2/ticket_fields/%d while checking whether Zendesk accepted it on form %s: %s", id, formID, err.Error()),
+			)
+			continue
+		}
+		if fieldResp.TicketField.Removable {
+			diags.AddError(
+				"Zendesk silently dropped a ticket field from the form",
+				fmt.Sprintf(
+					"Field id %d (%q) was included in the plan for ticket_form %s but is absent from the form after apply.\n\n"+
+						"This usually means Zendesk rejected the association — common causes:\n"+
+						"  • the field is not visible_in_portal/editable_in_portal but the form is end_user_visible\n"+
+						"  • the field belongs to a brand not allowed on the form\n"+
+						"  • the field type is not allowed for ticket forms\n\n"+
+						"Fix the underlying field/form configuration, then re-apply.",
+					id, fieldResp.TicketField.Title, formID,
+				),
+			)
+		}
+	}
+}
+
 func (r *TicketFormResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan TicketFormResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
@@ -213,8 +261,18 @@ func (r *TicketFormResource) Create(ctx context.Context, req resource.CreateRequ
 	// plan and errors with "Provider produced inconsistent result after
 	// apply". Keep the user's planned list in state instead; any server-side
 	// drift surfaces on the next refresh as a regular plan diff.
+	//
+	// First, though, surface the case where Zendesk silently dropped a custom
+	// field — without this check the plan-value override would hide it.
 	plannedTicketFieldIDs := plan.TicketFieldIDs
 	plannedRestrictedBrandIDs := plan.RestrictedBrandIDs
+	plannedIDs := int64ListToSlice(ctx, plannedTicketFieldIDs, &resp.Diagnostics)
+	if !resp.Diagnostics.HasError() {
+		r.detectSilentlyDroppedFields(ctx, plannedIDs, result.TicketForm.TicketFieldIDs, strconv.FormatInt(result.TicketForm.ID, 10), &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
 	mapTicketFormToState(&result.TicketForm, &plan)
 	if !plannedTicketFieldIDs.IsNull() && !plannedTicketFieldIDs.IsUnknown() {
 		plan.TicketFieldIDs = plannedTicketFieldIDs
@@ -244,21 +302,51 @@ func (r *TicketFormResource) Read(ctx context.Context, req resource.ReadRequest,
 	}
 
 	// Zendesk auto-includes system fields in every form's ticket_field_ids,
-	// which makes them appear as phantom additions on every refresh. Drop
-	// server ids that were not present in prior state (and keep prior order
-	// for the ones that survive) so refresh only reflects user-relevant
-	// changes — removals via UI still show up because we keep prior ids
-	// only if the server still has them.
+	// which would appear as phantom additions on every refresh. Distinguish
+	// admin-added custom fields (removable=true) from server-injected system
+	// fields (removable=false) — only the former surface as drift, so admin
+	// UI edits remain visible but system phantoms stay quiet.
 	if !state.TicketFieldIDs.IsNull() && !state.TicketFieldIDs.IsUnknown() {
 		priorIDs := int64ListToSlice(ctx, state.TicketFieldIDs, &resp.Diagnostics)
 		if !resp.Diagnostics.HasError() && len(priorIDs) > 0 {
+			priorSet := make(map[int64]struct{}, len(priorIDs))
+			for _, id := range priorIDs {
+				priorSet[id] = struct{}{}
+			}
 			serverSet := make(map[int64]struct{}, len(result.TicketForm.TicketFieldIDs))
 			for _, id := range result.TicketForm.TicketFieldIDs {
 				serverSet[id] = struct{}{}
 			}
-			filtered := make([]int64, 0, len(priorIDs))
+
+			// Keep prior order for IDs the server still has (UI removals
+			// surface because dropped ids are not appended back).
+			filtered := make([]int64, 0, len(result.TicketForm.TicketFieldIDs))
 			for _, id := range priorIDs {
 				if _, ok := serverSet[id]; ok {
+					filtered = append(filtered, id)
+				}
+			}
+
+			// For IDs newly observed on the server, fetch each field and
+			// include only the user-removable (custom) ones. System fields
+			// (removable=false) are auto-injected by Zendesk and would
+			// otherwise create phantom drift on every refresh.
+			for _, id := range result.TicketForm.TicketFieldIDs {
+				if _, ok := priorSet[id]; ok {
+					continue
+				}
+				var fieldResp struct {
+					TicketField struct {
+						Removable bool `json:"removable"`
+					} `json:"ticket_field"`
+				}
+				if err := r.client.Get(fmt.Sprintf("/api/v2/ticket_fields/%d", id), &fieldResp); err != nil {
+					// If classification fails, surface the id as drift rather
+					// than silently swallowing it.
+					filtered = append(filtered, id)
+					continue
+				}
+				if fieldResp.TicketField.Removable {
 					filtered = append(filtered, id)
 				}
 			}
@@ -293,9 +381,17 @@ func (r *TicketFormResource) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 
-	// See Create for why we restore the planned values after mapping.
+	// See Create for why we restore the planned values after mapping, and why
+	// we first check for silently-dropped custom fields.
 	plannedTicketFieldIDs := plan.TicketFieldIDs
 	plannedRestrictedBrandIDs := plan.RestrictedBrandIDs
+	plannedIDs := int64ListToSlice(ctx, plannedTicketFieldIDs, &resp.Diagnostics)
+	if !resp.Diagnostics.HasError() {
+		r.detectSilentlyDroppedFields(ctx, plannedIDs, result.TicketForm.TicketFieldIDs, state.ID.ValueString(), &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
 	mapTicketFormToState(&result.TicketForm, &plan)
 	if !plannedTicketFieldIDs.IsNull() && !plannedTicketFieldIDs.IsUnknown() {
 		plan.TicketFieldIDs = plannedTicketFieldIDs
