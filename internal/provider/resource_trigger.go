@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -14,8 +15,9 @@ import (
 )
 
 var (
-	_ resource.Resource                = &TriggerResource{}
-	_ resource.ResourceWithImportState = &TriggerResource{}
+	_ resource.Resource                   = &TriggerResource{}
+	_ resource.ResourceWithImportState    = &TriggerResource{}
+	_ resource.ResourceWithValidateConfig = &TriggerResource{}
 )
 
 type TriggerResource struct {
@@ -278,6 +280,38 @@ func (r *TriggerResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 func (r *TriggerResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+func (r *TriggerResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config TriggerResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	for i, action := range config.Actions {
+		if action.Field.ValueString() != "set_tags" {
+			continue
+		}
+		// Skip values that aren't known until apply (e.g. interpolated references).
+		if action.Value.IsNull() || action.Value.IsUnknown() {
+			continue
+		}
+
+		value := action.Value.ValueString()
+		if lowered := strings.ToLower(value); value != lowered {
+			resp.Diagnostics.AddAttributeError(
+				path.Root("actions").AtListIndex(i).AtName("value"),
+				"set_tags value must be lowercase",
+				fmt.Sprintf(
+					"Zendesk normalizes tags to lowercase, so a set_tags action with uppercase characters "+
+						"causes \"Provider produced inconsistent result after apply\" errors. "+
+						"Got %q; use %q instead.",
+					value, lowered,
+				),
+			)
+		}
+	}
 }
 
 func buildTriggerAPI(plan *TriggerResourceModel) triggerAPIObject {

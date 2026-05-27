@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"math"
+	"math/rand/v2"
 	"net/http"
 	"strconv"
 	"sync"
@@ -14,8 +15,12 @@ import (
 )
 
 const (
-	maxRetries           = 3
+	defaultMaxRetries    = 5
 	defaultRetryAfterSec = 60
+
+	// Backoff bounds for transient (5xx / network) retries.
+	retryBaseDelay = 1 * time.Second
+	retryMaxDelay  = 30 * time.Second
 
 	throttleStartUsage = 0.5
 	throttleMaxUsage   = 0.9
@@ -23,11 +28,41 @@ const (
 	throttleMaxDelay   = 60 * time.Second
 )
 
+// isRetryableStatus reports whether an HTTP status code represents a transient
+// error worth retrying. 429 is handled separately because it honors Retry-After.
+func isRetryableStatus(code int) bool {
+	switch code {
+	case http.StatusRequestTimeout, // 408
+		http.StatusInternalServerError, // 500
+		http.StatusBadGateway,          // 502
+		http.StatusServiceUnavailable,  // 503
+		http.StatusGatewayTimeout:      // 504
+		return true
+	}
+	// Cloudflare-specific edge errors (520-524): origin unreachable / timed out.
+	if code >= 520 && code <= 524 {
+		return true
+	}
+	return false
+}
+
+// backoffDelay returns an exponential backoff duration with full jitter for the
+// given zero-based attempt number (capped at retryMaxDelay).
+func backoffDelay(attempt int) time.Duration {
+	delay := float64(retryBaseDelay) * math.Pow(2, float64(attempt))
+	if delay > float64(retryMaxDelay) {
+		delay = float64(retryMaxDelay)
+	}
+	// Full jitter with a floor of half the computed delay.
+	return time.Duration(delay/2 + rand.Float64()*delay/2)
+}
+
 type ZendeskClient struct {
 	baseURL    string
 	email      string
 	apiToken   string
 	httpClient *http.Client
+	maxRetries int
 
 	mu                 sync.Mutex
 	rateLimitTotal     int
@@ -57,6 +92,7 @@ func NewZendeskClient(subdomain, email, apiToken string) *ZendeskClient {
 		email:              email,
 		apiToken:           apiToken,
 		httpClient:         &http.Client{Timeout: 60 * time.Second},
+		maxRetries:         defaultMaxRetries,
 		rateLimitRemaining: -1,
 	}
 }
@@ -132,7 +168,9 @@ func (c *ZendeskClient) doRequest(method, path string, body interface{}, result 
 		}
 	}
 
-	for attempt := 0; attempt <= maxRetries; attempt++ {
+	var lastErr error
+
+	for attempt := 0; attempt <= c.maxRetries; attempt++ {
 		c.throttleIfNeeded()
 
 		var reqBody io.Reader
@@ -151,18 +189,37 @@ func (c *ZendeskClient) doRequest(method, path string, body interface{}, result 
 
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
-			return fmt.Errorf("executing request: %w", err)
+			// Transport-level failure (connection reset, DNS, TLS, timeout).
+			// These are transient, so back off and retry.
+			lastErr = fmt.Errorf("executing request: %w", err)
+			if attempt < c.maxRetries {
+				delay := backoffDelay(attempt)
+				log.Printf("[WARN] Zendesk request error on %s %s (%v), retry %d/%d after %s",
+					method, path, err, attempt+1, c.maxRetries, delay.Round(time.Millisecond))
+				time.Sleep(delay)
+				continue
+			}
+			return lastErr
 		}
 
 		respBody, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
-			return fmt.Errorf("reading response body: %w", err)
+			lastErr = fmt.Errorf("reading response body: %w", err)
+			if attempt < c.maxRetries {
+				delay := backoffDelay(attempt)
+				log.Printf("[WARN] Zendesk response read error on %s %s (%v), retry %d/%d after %s",
+					method, path, err, attempt+1, c.maxRetries, delay.Round(time.Millisecond))
+				time.Sleep(delay)
+				continue
+			}
+			return lastErr
 		}
 
 		c.updateRateLimits(resp)
 
-		if resp.StatusCode == 429 && attempt < maxRetries {
+		// 429: respect the server's Retry-After (or fall back to a default).
+		if resp.StatusCode == http.StatusTooManyRequests && attempt < c.maxRetries {
 			retryAfter := defaultRetryAfterSec
 			if v := resp.Header.Get("Retry-After"); v != "" {
 				if n, err := strconv.Atoi(v); err == nil && n > 0 {
@@ -170,8 +227,19 @@ func (c *ZendeskClient) doRequest(method, path string, body interface{}, result 
 				}
 			}
 			log.Printf("[WARN] Zendesk rate limit hit (429 on %s %s), retry %d/%d after %ds",
-				method, path, attempt+1, maxRetries, retryAfter)
+				method, path, attempt+1, c.maxRetries, retryAfter)
 			time.Sleep(time.Duration(retryAfter) * time.Second)
+			lastErr = &APIError{StatusCode: resp.StatusCode, Body: string(respBody)}
+			continue
+		}
+
+		// Transient gateway/server errors (e.g. Cloudflare 502/503/504): back off and retry.
+		if isRetryableStatus(resp.StatusCode) && attempt < c.maxRetries {
+			lastErr = &APIError{StatusCode: resp.StatusCode, Body: string(respBody)}
+			delay := backoffDelay(attempt)
+			log.Printf("[WARN] Zendesk transient error (HTTP %d on %s %s), retry %d/%d after %s",
+				resp.StatusCode, method, path, attempt+1, c.maxRetries, delay.Round(time.Millisecond))
+			time.Sleep(delay)
 			continue
 		}
 
@@ -191,9 +259,13 @@ func (c *ZendeskClient) doRequest(method, path string, body interface{}, result 
 		return nil
 	}
 
+	// Retries exhausted; surface the most recent transient error.
+	if lastErr != nil {
+		return fmt.Errorf("%s %s failed after %d retries: %w", method, path, c.maxRetries, lastErr)
+	}
 	return &APIError{
-		StatusCode: 429,
-		Body:       fmt.Sprintf("rate limit exceeded on %s %s after %d retries", method, path, maxRetries),
+		StatusCode: 0,
+		Body:       fmt.Sprintf("request failed on %s %s after %d retries", method, path, c.maxRetries),
 	}
 }
 
