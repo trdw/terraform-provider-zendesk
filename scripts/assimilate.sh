@@ -131,9 +131,13 @@ elif echo "$URL" | grep -qE '/brands/'; then
   RESOURCE_TYPE="brand"
   API_PATH="/api/v2/brands/${RESOURCE_ID}"
   TF_TYPE="zendesk_brand"
+elif echo "$URL" | grep -qE '/organizations/'; then
+  RESOURCE_TYPE="organization"
+  API_PATH="/api/v2/organizations/${RESOURCE_ID}"
+  TF_TYPE="zendesk_organization"
 else
   echo "Error: Could not determine resource type from URL"
-  echo "Supported: triggers, trigger-categories, automations, views, macros, ticket-forms, ticket-fields, user-fields, groups, roles, members, brands"
+  echo "Supported: triggers, trigger-categories, automations, views, macros, ticket-forms, ticket-fields, user-fields, groups, roles, members, brands, organizations"
   exit 1
 fi
 
@@ -157,8 +161,11 @@ echo "$API_RESPONSE" | python3 -m json.tool
 # ---------------------------------------------------------------------------
 # Helper: convert a string to snake_case
 # ---------------------------------------------------------------------------
+# The trailing `s/^([0-9])/_\1/` prepends an underscore when the name would
+# otherwise start with a digit, since Terraform identifiers (resource/data
+# names) may not begin with a number — e.g. "24 Hour Notice" -> "_24_hour_notice".
 to_snake_case() {
-  echo "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+//; s/_+$//'
+  echo "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+//; s/_+$//; s/^([0-9])/_\1/'
 }
 
 # Accepts y, yes, true (any case) — matches the values users typically pass to

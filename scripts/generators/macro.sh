@@ -60,15 +60,27 @@ generate_macro() {
   fi
 
   # Restriction
+  # Zendesk distinguishes User restrictions (a single user `id`) from Group
+  # restrictions (one OR MORE groups in `ids`). `restriction.id` is just one of
+  # the group ids and is not stable, so for Group we emit the full `ids` list.
   local has_restriction
   has_restriction=$(echo "$json" | jq '.macro.restriction // null | type == "object" and has("type")')
   if [[ "$has_restriction" == "true" ]]; then
-    local r_type r_id
+    local r_type
     r_type=$(echo "$json" | jq -r '.macro.restriction.type')
-    r_id=$(echo "$json" | jq -r '.macro.restriction.id')
     tf+="\n  restriction = {\n"
     tf+="    type = \"$(hcl_escape "$r_type")\"\n"
-    tf+="    id   = ${r_id}\n"
+    if [[ "$r_type" == "Group" ]]; then
+      # Prefer the `ids` array; fall back to the singular `id` if Zendesk only
+      # returned that (older payloads / single-group restrictions).
+      local ids_csv
+      ids_csv=$(echo "$json" | jq -r '(.macro.restriction.ids // [.macro.restriction.id] | map(select(. != null))) | join(", ")')
+      tf+="    ids  = [${ids_csv}]\n"
+    else
+      local r_id
+      r_id=$(echo "$json" | jq -r '.macro.restriction.id')
+      tf+="    id   = ${r_id}\n"
+    fi
     tf+="  }\n"
   fi
 

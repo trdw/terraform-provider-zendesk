@@ -48,5 +48,9 @@ Required:
 
 Required:
 
-- `id` (Number) The numeric ID of the group or user.
 - `type` (String) The type of restriction (Group or User).
+
+Optional:
+
+- `id` (Number) The numeric ID of the user (for a User restriction). For Group restrictions use `ids`.
+- `ids` (Set of Number) The numeric IDs of the groups (for a Group restriction). Zendesk allows a macro to be restricted to multiple groups.
