@@ -51,26 +51,26 @@ type UserResourceModel struct {
 }
 
 type userCreateUpdateAPI struct {
-	Name                string  `json:"name"`
-	Email               string  `json:"email,omitempty"`
-	Role                string  `json:"role,omitempty"`
-	CustomRoleID        *int64  `json:"custom_role_id,omitempty"`
-	DefaultGroupID      *int64  `json:"default_group_id,omitempty"`
-	Alias               string  `json:"alias,omitempty"`
-	Details             string  `json:"details,omitempty"`
-	Notes               string  `json:"notes,omitempty"`
-	Signature           string  `json:"signature,omitempty"`
-	Phone               string  `json:"phone,omitempty"`
-	ExternalID          string  `json:"external_id,omitempty"`
-	OrganizationID      *int64  `json:"organization_id,omitempty"`
-	Locale              string  `json:"locale,omitempty"`
-	TimeZone            string  `json:"time_zone,omitempty"`
-	Suspended           *bool   `json:"suspended,omitempty"`
-	RestrictedAgent     *bool   `json:"restricted_agent,omitempty"`
-	OnlyPrivateComments *bool   `json:"only_private_comments,omitempty"`
-	TicketRestriction   string  `json:"ticket_restriction,omitempty"`
-	Verified            *bool   `json:"verified,omitempty"`
-	SkipVerifyEmail     *bool   `json:"skip_verify_email,omitempty"`
+	Name                string `json:"name"`
+	Email               string `json:"email,omitempty"`
+	Role                string `json:"role,omitempty"`
+	CustomRoleID        *int64 `json:"custom_role_id,omitempty"`
+	DefaultGroupID      *int64 `json:"default_group_id,omitempty"`
+	Alias               string `json:"alias,omitempty"`
+	Details             string `json:"details,omitempty"`
+	Notes               string `json:"notes,omitempty"`
+	Signature           string `json:"signature,omitempty"`
+	Phone               string `json:"phone,omitempty"`
+	ExternalID          string `json:"external_id,omitempty"`
+	OrganizationID      *int64 `json:"organization_id,omitempty"`
+	Locale              string `json:"locale,omitempty"`
+	TimeZone            string `json:"time_zone,omitempty"`
+	Suspended           *bool  `json:"suspended,omitempty"`
+	RestrictedAgent     *bool  `json:"restricted_agent,omitempty"`
+	OnlyPrivateComments *bool  `json:"only_private_comments,omitempty"`
+	TicketRestriction   string `json:"ticket_restriction,omitempty"`
+	Verified            *bool  `json:"verified,omitempty"`
+	SkipVerifyEmail     *bool  `json:"skip_verify_email,omitempty"`
 }
 
 type userReadAPI struct {

@@ -67,17 +67,17 @@ type triggerConditionsAPI struct {
 }
 
 type triggerAPIObject struct {
-	ID          int64                `json:"id,omitempty"`
-	Title       string               `json:"title"`
-	Active      *bool                `json:"active,omitempty"`
-	Description string               `json:"description,omitempty"`
-	CategoryID  *string              `json:"category_id,omitempty"`
-	Position    int64                `json:"position,omitempty"`
-	Default     bool                 `json:"default,omitempty"`
+	ID          int64                 `json:"id,omitempty"`
+	Title       string                `json:"title"`
+	Active      *bool                 `json:"active,omitempty"`
+	Description string                `json:"description,omitempty"`
+	CategoryID  *string               `json:"category_id,omitempty"`
+	Position    int64                 `json:"position,omitempty"`
+	Default     bool                  `json:"default,omitempty"`
 	Conditions  *triggerConditionsAPI `json:"conditions,omitempty"`
-	Actions     []triggerActionAPI   `json:"actions"`
-	CreatedAt   string               `json:"created_at,omitempty"`
-	UpdatedAt   string               `json:"updated_at,omitempty"`
+	Actions     []triggerActionAPI    `json:"actions"`
+	CreatedAt   string                `json:"created_at,omitempty"`
+	UpdatedAt   string                `json:"updated_at,omitempty"`
 }
 
 type triggerWrapper struct {

@@ -35,22 +35,22 @@ type ViewRestrictionModel struct {
 }
 
 type ViewResourceModel struct {
-	ID          types.String         `tfsdk:"id"`
-	Title       types.String         `tfsdk:"title"`
-	Active      types.Bool           `tfsdk:"active"`
-	Description types.String         `tfsdk:"description"`
-	Position    types.Int64          `tfsdk:"position"`
-	Default     types.Bool           `tfsdk:"default"`
-	All         []ViewConditionModel `tfsdk:"all"`
-	Any         []ViewConditionModel `tfsdk:"any"`
-	Columns     types.List           `tfsdk:"columns"`
-	GroupBy     types.String         `tfsdk:"group_by"`
-	GroupOrder  types.String         `tfsdk:"group_order"`
-	SortBy      types.String         `tfsdk:"sort_by"`
-	SortOrder   types.String         `tfsdk:"sort_order"`
+	ID          types.String          `tfsdk:"id"`
+	Title       types.String          `tfsdk:"title"`
+	Active      types.Bool            `tfsdk:"active"`
+	Description types.String          `tfsdk:"description"`
+	Position    types.Int64           `tfsdk:"position"`
+	Default     types.Bool            `tfsdk:"default"`
+	All         []ViewConditionModel  `tfsdk:"all"`
+	Any         []ViewConditionModel  `tfsdk:"any"`
+	Columns     types.List            `tfsdk:"columns"`
+	GroupBy     types.String          `tfsdk:"group_by"`
+	GroupOrder  types.String          `tfsdk:"group_order"`
+	SortBy      types.String          `tfsdk:"sort_by"`
+	SortOrder   types.String          `tfsdk:"sort_order"`
 	Restriction *ViewRestrictionModel `tfsdk:"restriction"`
-	CreatedAt   types.String         `tfsdk:"created_at"`
-	UpdatedAt   types.String         `tfsdk:"updated_at"`
+	CreatedAt   types.String          `tfsdk:"created_at"`
+	UpdatedAt   types.String          `tfsdk:"updated_at"`
 }
 
 type viewConditionAPI struct {

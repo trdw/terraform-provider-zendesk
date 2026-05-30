@@ -70,39 +70,39 @@ type CustomRoleResourceModel struct {
 }
 
 type customRoleConfigAPI struct {
-	AssignTicketsToAnyGroup     *bool   `json:"assign_tickets_to_any_group,omitempty"`
-	ChatAccess                  *bool   `json:"chat_access,omitempty"`
-	EndUserListAccess           string  `json:"end_user_list_access,omitempty"`
-	EndUserProfileAccess        string  `json:"end_user_profile_access,omitempty"`
-	ExploreAccess               string  `json:"explore_access,omitempty"`
-	ForumAccess                 string  `json:"forum_access,omitempty"`
-	GroupAccess                 *bool   `json:"group_access,omitempty"`
-	LightAgent                  *bool   `json:"light_agent,omitempty"`
-	MacroAccess                 string  `json:"macro_access,omitempty"`
-	ManageBusinessRules         *bool   `json:"manage_business_rules,omitempty"`
-	ManageContextualWorkspaces  *bool   `json:"manage_contextual_workspaces,omitempty"`
-	ManageDynamicContent        *bool   `json:"manage_dynamic_content,omitempty"`
-	ManageExtensionsAndChannels *bool   `json:"manage_extensions_and_channels,omitempty"`
-	ManageFacebook              *bool   `json:"manage_facebook,omitempty"`
-	ManageOrganizationFields    *bool   `json:"manage_organization_fields,omitempty"`
-	ManageTicketFields          *bool   `json:"manage_ticket_fields,omitempty"`
-	ManageTicketForms           *bool   `json:"manage_ticket_forms,omitempty"`
-	ManageUserFields            *bool   `json:"manage_user_fields,omitempty"`
-	ModerateForums              *bool   `json:"moderate_forums,omitempty"`
-	OrganizationEditing         *bool   `json:"organization_editing,omitempty"`
-	OrganizationNotesEditing    *bool   `json:"organization_notes_editing,omitempty"`
-	ReportAccess                string  `json:"report_access,omitempty"`
-	SideConversationCreate      *bool   `json:"side_conversation_create,omitempty"`
-	TicketAccess                string  `json:"ticket_access,omitempty"`
-	TicketCommentAccess         string  `json:"ticket_comment_access,omitempty"`
-	TicketDeletion              *bool   `json:"ticket_deletion,omitempty"`
-	TicketEditing               *bool   `json:"ticket_editing,omitempty"`
-	TicketMerge                 *bool   `json:"ticket_merge,omitempty"`
-	TicketTagEditing            *bool   `json:"ticket_tag_editing,omitempty"`
-	ViewAccess                  string  `json:"view_access,omitempty"`
-	ViewDeletedTickets          *bool   `json:"view_deleted_tickets,omitempty"`
-	VoiceAccess                 *bool   `json:"voice_access,omitempty"`
-	VoiceDashboardAccess        *bool   `json:"voice_dashboard_access,omitempty"`
+	AssignTicketsToAnyGroup     *bool  `json:"assign_tickets_to_any_group,omitempty"`
+	ChatAccess                  *bool  `json:"chat_access,omitempty"`
+	EndUserListAccess           string `json:"end_user_list_access,omitempty"`
+	EndUserProfileAccess        string `json:"end_user_profile_access,omitempty"`
+	ExploreAccess               string `json:"explore_access,omitempty"`
+	ForumAccess                 string `json:"forum_access,omitempty"`
+	GroupAccess                 *bool  `json:"group_access,omitempty"`
+	LightAgent                  *bool  `json:"light_agent,omitempty"`
+	MacroAccess                 string `json:"macro_access,omitempty"`
+	ManageBusinessRules         *bool  `json:"manage_business_rules,omitempty"`
+	ManageContextualWorkspaces  *bool  `json:"manage_contextual_workspaces,omitempty"`
+	ManageDynamicContent        *bool  `json:"manage_dynamic_content,omitempty"`
+	ManageExtensionsAndChannels *bool  `json:"manage_extensions_and_channels,omitempty"`
+	ManageFacebook              *bool  `json:"manage_facebook,omitempty"`
+	ManageOrganizationFields    *bool  `json:"manage_organization_fields,omitempty"`
+	ManageTicketFields          *bool  `json:"manage_ticket_fields,omitempty"`
+	ManageTicketForms           *bool  `json:"manage_ticket_forms,omitempty"`
+	ManageUserFields            *bool  `json:"manage_user_fields,omitempty"`
+	ModerateForums              *bool  `json:"moderate_forums,omitempty"`
+	OrganizationEditing         *bool  `json:"organization_editing,omitempty"`
+	OrganizationNotesEditing    *bool  `json:"organization_notes_editing,omitempty"`
+	ReportAccess                string `json:"report_access,omitempty"`
+	SideConversationCreate      *bool  `json:"side_conversation_create,omitempty"`
+	TicketAccess                string `json:"ticket_access,omitempty"`
+	TicketCommentAccess         string `json:"ticket_comment_access,omitempty"`
+	TicketDeletion              *bool  `json:"ticket_deletion,omitempty"`
+	TicketEditing               *bool  `json:"ticket_editing,omitempty"`
+	TicketMerge                 *bool  `json:"ticket_merge,omitempty"`
+	TicketTagEditing            *bool  `json:"ticket_tag_editing,omitempty"`
+	ViewAccess                  string `json:"view_access,omitempty"`
+	ViewDeletedTickets          *bool  `json:"view_deleted_tickets,omitempty"`
+	VoiceAccess                 *bool  `json:"voice_access,omitempty"`
+	VoiceDashboardAccess        *bool  `json:"voice_dashboard_access,omitempty"`
 }
 
 type customRoleAPIObject struct {
@@ -160,39 +160,39 @@ func (r *CustomRoleResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Computed:    true,
 				Description: "Permissions configuration for the role.",
 				Attributes: map[string]schema.Attribute{
-					"assign_tickets_to_any_group": schema.BoolAttribute{Computed: true, Description: "Read-only — derived by Zendesk from other settings."},
-					"chat_access":                 schema.BoolAttribute{Computed: true, Description: "Read-only — derived by Zendesk from other settings."},
-					"end_user_list_access":         schema.StringAttribute{Optional: true, Computed: true, Description: "full, none"},
-					"end_user_profile_access":      schema.StringAttribute{Optional: true, Computed: true, Description: "edit, edit-within-org, full, readonly"},
-					"explore_access":               schema.StringAttribute{Optional: true, Computed: true, Description: "edit, full, none, readonly"},
-					"forum_access":                 schema.StringAttribute{Optional: true, Computed: true, Description: "edit-topics, full, readonly"},
-					"group_access":                schema.BoolAttribute{Computed: true, Description: "Read-only — derived by Zendesk from group-management permissions."},
-					"light_agent":                 schema.BoolAttribute{Computed: true, Description: "Read-only — set via the role's role_type, not this attribute."},
-					"macro_access":                schema.StringAttribute{Optional: true, Computed: true, Description: "full, manage-group, manage-personal, readonly"},
-					"manage_business_rules":        schema.BoolAttribute{Optional: true, Computed: true},
-					"manage_contextual_workspaces": schema.BoolAttribute{Optional: true, Computed: true},
-					"manage_dynamic_content":       schema.BoolAttribute{Optional: true, Computed: true},
+					"assign_tickets_to_any_group":    schema.BoolAttribute{Computed: true, Description: "Read-only — derived by Zendesk from other settings."},
+					"chat_access":                    schema.BoolAttribute{Computed: true, Description: "Read-only — derived by Zendesk from other settings."},
+					"end_user_list_access":           schema.StringAttribute{Optional: true, Computed: true, Description: "full, none"},
+					"end_user_profile_access":        schema.StringAttribute{Optional: true, Computed: true, Description: "edit, edit-within-org, full, readonly"},
+					"explore_access":                 schema.StringAttribute{Optional: true, Computed: true, Description: "edit, full, none, readonly"},
+					"forum_access":                   schema.StringAttribute{Optional: true, Computed: true, Description: "edit-topics, full, readonly"},
+					"group_access":                   schema.BoolAttribute{Computed: true, Description: "Read-only — derived by Zendesk from group-management permissions."},
+					"light_agent":                    schema.BoolAttribute{Computed: true, Description: "Read-only — set via the role's role_type, not this attribute."},
+					"macro_access":                   schema.StringAttribute{Optional: true, Computed: true, Description: "full, manage-group, manage-personal, readonly"},
+					"manage_business_rules":          schema.BoolAttribute{Optional: true, Computed: true},
+					"manage_contextual_workspaces":   schema.BoolAttribute{Optional: true, Computed: true},
+					"manage_dynamic_content":         schema.BoolAttribute{Optional: true, Computed: true},
 					"manage_extensions_and_channels": schema.BoolAttribute{Optional: true, Computed: true},
-					"manage_facebook":              schema.BoolAttribute{Optional: true, Computed: true},
-					"manage_organization_fields":   schema.BoolAttribute{Optional: true, Computed: true},
-					"manage_ticket_fields":         schema.BoolAttribute{Optional: true, Computed: true},
-					"manage_ticket_forms":          schema.BoolAttribute{Optional: true, Computed: true},
-					"manage_user_fields":           schema.BoolAttribute{Optional: true, Computed: true},
-					"moderate_forums":              schema.BoolAttribute{Computed: true, Description: "Read-only — derived by Zendesk from other settings."},
-					"organization_editing":         schema.BoolAttribute{Optional: true, Computed: true},
-					"organization_notes_editing":   schema.BoolAttribute{Computed: true, Description: "Read-only — derived by Zendesk from organization_editing."},
-					"report_access":               schema.StringAttribute{Optional: true, Computed: true, Description: "full, none, readonly"},
-					"side_conversation_create":     schema.BoolAttribute{Optional: true, Computed: true},
-					"ticket_access":               schema.StringAttribute{Optional: true, Computed: true, Description: "all, assigned-only, within-groups, within-groups-and-public"},
-					"ticket_comment_access":        schema.StringAttribute{Optional: true, Computed: true, Description: "public, none"},
-					"ticket_deletion":             schema.BoolAttribute{Optional: true, Computed: true},
-					"ticket_editing":              schema.BoolAttribute{Optional: true, Computed: true},
-					"ticket_merge":                schema.BoolAttribute{Optional: true, Computed: true},
-					"ticket_tag_editing":           schema.BoolAttribute{Optional: true, Computed: true},
-					"view_access":                 schema.StringAttribute{Optional: true, Computed: true, Description: "full, manage-group, manage-personal, readonly, playonly"},
-					"view_deleted_tickets":         schema.BoolAttribute{Optional: true, Computed: true},
-					"voice_access":                schema.BoolAttribute{Optional: true, Computed: true},
-					"voice_dashboard_access":       schema.BoolAttribute{Optional: true, Computed: true},
+					"manage_facebook":                schema.BoolAttribute{Optional: true, Computed: true},
+					"manage_organization_fields":     schema.BoolAttribute{Optional: true, Computed: true},
+					"manage_ticket_fields":           schema.BoolAttribute{Optional: true, Computed: true},
+					"manage_ticket_forms":            schema.BoolAttribute{Optional: true, Computed: true},
+					"manage_user_fields":             schema.BoolAttribute{Optional: true, Computed: true},
+					"moderate_forums":                schema.BoolAttribute{Computed: true, Description: "Read-only — derived by Zendesk from other settings."},
+					"organization_editing":           schema.BoolAttribute{Optional: true, Computed: true},
+					"organization_notes_editing":     schema.BoolAttribute{Computed: true, Description: "Read-only — derived by Zendesk from organization_editing."},
+					"report_access":                  schema.StringAttribute{Optional: true, Computed: true, Description: "full, none, readonly"},
+					"side_conversation_create":       schema.BoolAttribute{Optional: true, Computed: true},
+					"ticket_access":                  schema.StringAttribute{Optional: true, Computed: true, Description: "all, assigned-only, within-groups, within-groups-and-public"},
+					"ticket_comment_access":          schema.StringAttribute{Optional: true, Computed: true, Description: "public, none"},
+					"ticket_deletion":                schema.BoolAttribute{Optional: true, Computed: true},
+					"ticket_editing":                 schema.BoolAttribute{Optional: true, Computed: true},
+					"ticket_merge":                   schema.BoolAttribute{Optional: true, Computed: true},
+					"ticket_tag_editing":             schema.BoolAttribute{Optional: true, Computed: true},
+					"view_access":                    schema.StringAttribute{Optional: true, Computed: true, Description: "full, manage-group, manage-personal, readonly, playonly"},
+					"view_deleted_tickets":           schema.BoolAttribute{Optional: true, Computed: true},
+					"voice_access":                   schema.BoolAttribute{Optional: true, Computed: true},
+					"voice_dashboard_access":         schema.BoolAttribute{Optional: true, Computed: true},
 				},
 			},
 			"created_at": schema.StringAttribute{
