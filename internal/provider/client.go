@@ -10,6 +10,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -310,19 +311,16 @@ func valueToString(v interface{}) string {
 }
 
 // stringToValue converts a Terraform string value to an appropriate API value.
+// Scalar values are always sent as strings: the rules API (triggers,
+// automations, macros) rejects numeric/boolean JSON scalars with
+// "value must be a string". Only JSON arrays (e.g. notification_webhook
+// action values) are passed through as real arrays.
 func stringToValue(s string) interface{} {
-	if s == "" {
-		return s
-	}
-	if i, err := strconv.ParseInt(s, 10, 64); err == nil {
-		return i
-	}
-	if b, err := strconv.ParseBool(s); err == nil {
-		return b
-	}
-	var arr []interface{}
-	if err := json.Unmarshal([]byte(s), &arr); err == nil {
-		return arr
+	if strings.HasPrefix(strings.TrimSpace(s), "[") {
+		var arr []interface{}
+		if err := json.Unmarshal([]byte(s), &arr); err == nil {
+			return arr
+		}
 	}
 	return s
 }
