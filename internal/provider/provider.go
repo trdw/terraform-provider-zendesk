@@ -110,6 +110,7 @@ func (p *ZendeskProvider) Resources(_ context.Context) []func() resource.Resourc
 		NewTicketFormResource,
 		NewAutomationResource,
 		NewOrganizationResource,
+		NewTargetResource,
 	}
 }
 
@@ -129,5 +130,6 @@ func (p *ZendeskProvider) DataSources(_ context.Context) []func() datasource.Dat
 		NewTicketFormDataSource,
 		NewAutomationDataSource,
 		NewOrganizationDataSource,
+		NewTargetDataSource,
 	}
 }

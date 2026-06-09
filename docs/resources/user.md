@@ -24,7 +24,7 @@ Manages a Zendesk user (agent). Can be used to create and manage agent accounts.
 
 - `alias` (String) An alias displayed to end users instead of the agent's real name.
 - `custom_role_id` (Number) A custom role ID if the user is an agent on the Enterprise plan.
-- `default_group_id` (Number) The default group ID for the user.
+- `default_group_id` (Number) The default group ID for the user. If omitted, Zendesk auto-assigns one and the assigned value is recorded in state.
 - `details` (String) Details about the user, such as an address.
 - `external_id` (String) A unique identifier from another system.
 - `locale` (String) The user's locale (e.g. en-US).

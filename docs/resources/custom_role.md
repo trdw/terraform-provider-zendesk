@@ -37,14 +37,10 @@ Manages a Zendesk custom agent role.
 
 Optional:
 
-- `assign_tickets_to_any_group` (Boolean)
-- `chat_access` (Boolean)
 - `end_user_list_access` (String) full, none
 - `end_user_profile_access` (String) edit, edit-within-org, full, readonly
 - `explore_access` (String) edit, full, none, readonly
 - `forum_access` (String) edit-topics, full, readonly
-- `group_access` (Boolean)
-- `light_agent` (Boolean)
 - `macro_access` (String) full, manage-group, manage-personal, readonly
 - `manage_business_rules` (Boolean)
 - `manage_contextual_workspaces` (Boolean)
@@ -55,9 +51,7 @@ Optional:
 - `manage_ticket_fields` (Boolean)
 - `manage_ticket_forms` (Boolean)
 - `manage_user_fields` (Boolean)
-- `moderate_forums` (Boolean)
 - `organization_editing` (Boolean)
-- `organization_notes_editing` (Boolean)
 - `report_access` (String) full, none, readonly
 - `side_conversation_create` (Boolean)
 - `ticket_access` (String) all, assigned-only, within-groups, within-groups-and-public
@@ -70,3 +64,12 @@ Optional:
 - `view_deleted_tickets` (Boolean)
 - `voice_access` (Boolean)
 - `voice_dashboard_access` (Boolean)
+
+Read-Only:
+
+- `assign_tickets_to_any_group` (Boolean) Read-only — derived by Zendesk from other settings.
+- `chat_access` (Boolean) Read-only — derived by Zendesk from other settings.
+- `group_access` (Boolean) Read-only — derived by Zendesk from group-management permissions.
+- `light_agent` (Boolean) Read-only — set via the role's role_type, not this attribute.
+- `moderate_forums` (Boolean) Read-only — derived by Zendesk from other settings.
+- `organization_notes_editing` (Boolean) Read-only — derived by Zendesk from organization_editing.
