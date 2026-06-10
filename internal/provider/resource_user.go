@@ -141,8 +141,15 @@ func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Description: "The user's role: end-user, agent, or admin.",
 			},
 			"custom_role_id": schema.Int64Attribute{
-				Optional:    true,
-				Description: "A custom role ID if the user is an agent on the Enterprise plan.",
+				Optional: true,
+				Computed: true,
+				Description: "A custom role ID if the user is an agent on the Enterprise plan. " +
+					"If omitted, Zendesk assigns the system role for the user's role " +
+					"(e.g. flipping role to admin assigns the Admin system role) and the " +
+					"assigned value is recorded in state.",
+				PlanModifiers: []planmodifier.Int64{
+					customRoleIDPlanModifier{},
+				},
 			},
 			"default_group_id": schema.Int64Attribute{
 				Optional:    true,
@@ -486,4 +493,45 @@ func mapUserToState(u *userReadAPI, m *UserResourceModel) {
 	} else {
 		m.LastLoginAt = types.StringNull()
 	}
+}
+
+// customRoleIDPlanModifier keeps custom_role_id stable like UseStateForUnknown,
+// EXCEPT when the user's role is changing. Zendesk couples the two: changing
+// role (e.g. agent -> admin) makes Zendesk reassign the matching system role's
+// custom_role_id, so carrying the old state value into the plan would produce
+// "inconsistent result after apply". On a role change the value is left
+// unknown and the API's reassigned id is accepted.
+type customRoleIDPlanModifier struct{}
+
+func (m customRoleIDPlanModifier) Description(_ context.Context) string {
+	return "Uses state for unknown unless role changes, in which case the API-assigned value is accepted."
+}
+
+func (m customRoleIDPlanModifier) MarkdownDescription(ctx context.Context) string {
+	return m.Description(ctx)
+}
+
+func (m customRoleIDPlanModifier) PlanModifyInt64(ctx context.Context, req planmodifier.Int64Request, resp *planmodifier.Int64Response) {
+	// Explicitly configured: keep the config value.
+	if !req.ConfigValue.IsNull() {
+		return
+	}
+	// No prior state (create): leave unknown.
+	if req.StateValue.IsNull() && req.PlanValue.IsUnknown() {
+		return
+	}
+	var planRole, stateRole types.String
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("role"), &planRole)...)
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("role"), &stateRole)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	// Role is changing (or becoming unknown): Zendesk will reassign the
+	// system role id — leave the plan value unknown.
+	if planRole.IsUnknown() || !planRole.Equal(stateRole) {
+		resp.PlanValue = types.Int64Unknown()
+		return
+	}
+	// Role unchanged: hold the state value (UseStateForUnknown behavior).
+	resp.PlanValue = req.StateValue
 }
