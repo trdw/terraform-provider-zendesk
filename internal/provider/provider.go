@@ -111,6 +111,7 @@ func (p *ZendeskProvider) Resources(_ context.Context) []func() resource.Resourc
 		NewAutomationResource,
 		NewOrganizationResource,
 		NewTargetResource,
+		NewSupportAddressResource,
 	}
 }
 
@@ -131,5 +132,6 @@ func (p *ZendeskProvider) DataSources(_ context.Context) []func() datasource.Dat
 		NewAutomationDataSource,
 		NewOrganizationDataSource,
 		NewTargetDataSource,
+		NewSupportAddressDataSource,
 	}
 }
