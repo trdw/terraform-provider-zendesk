@@ -66,6 +66,8 @@ type ZendeskClient struct {
 	maxRetries int
 
 	mu                 sync.Mutex
+	userMu             sync.Mutex
+	userEmails         map[int64]string
 	rateLimitTotal     int
 	rateLimitRemaining int
 	rateLimitResetAt   time.Time
@@ -95,6 +97,7 @@ func NewZendeskClient(subdomain, email, apiToken string) *ZendeskClient {
 		httpClient:         &http.Client{Timeout: 60 * time.Second},
 		maxRetries:         defaultMaxRetries,
 		rateLimitRemaining: -1,
+		userEmails:         make(map[int64]string),
 	}
 }
 
@@ -157,7 +160,7 @@ func (c *ZendeskClient) throttleIfNeeded() {
 	}
 }
 
-func (c *ZendeskClient) doRequest(method, path string, body interface{}, result interface{}) error {
+func (c *ZendeskClient) doRequest(authEmail, method, path string, body interface{}, result interface{}) error {
 	url := c.baseURL + path
 
 	var jsonBody []byte
@@ -184,7 +187,11 @@ func (c *ZendeskClient) doRequest(method, path string, body interface{}, result 
 			return fmt.Errorf("creating request: %w", err)
 		}
 
-		req.SetBasicAuth(c.email+"/token", c.apiToken)
+		authAs := c.email
+		if authEmail != "" {
+			authAs = authEmail
+		}
+		req.SetBasicAuth(authAs+"/token", c.apiToken)
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
 
@@ -271,23 +278,53 @@ func (c *ZendeskClient) doRequest(method, path string, body interface{}, result 
 }
 
 func (c *ZendeskClient) Get(path string, result interface{}) error {
-	return c.doRequest(http.MethodGet, path, nil, result)
+	return c.doRequest("", http.MethodGet, path, nil, result)
+}
+
+// GetAs performs a GET authenticating as authEmail (same API token). Used to read
+// user-restricted resources (e.g. personal views) that Zendesk only returns to
+// their owner, even when fetched by id.
+func (c *ZendeskClient) GetAs(authEmail, path string, result interface{}) error {
+	return c.doRequest(authEmail, http.MethodGet, path, nil, result)
+}
+
+// UserEmail returns the email for a Zendesk user id (cached). Admins can read any
+// user, so this works with the static credentials.
+func (c *ZendeskClient) UserEmail(id int64) (string, error) {
+	c.userMu.Lock()
+	if e, ok := c.userEmails[id]; ok {
+		c.userMu.Unlock()
+		return e, nil
+	}
+	c.userMu.Unlock()
+	var res struct {
+		User struct {
+			Email string `json:"email"`
+		} `json:"user"`
+	}
+	if err := c.Get(fmt.Sprintf("/api/v2/users/%d", id), &res); err != nil {
+		return "", err
+	}
+	c.userMu.Lock()
+	c.userEmails[id] = res.User.Email
+	c.userMu.Unlock()
+	return res.User.Email, nil
 }
 
 func (c *ZendeskClient) Post(path string, body interface{}, result interface{}) error {
-	return c.doRequest(http.MethodPost, path, body, result)
+	return c.doRequest("", http.MethodPost, path, body, result)
 }
 
 func (c *ZendeskClient) Put(path string, body interface{}, result interface{}) error {
-	return c.doRequest(http.MethodPut, path, body, result)
+	return c.doRequest("", http.MethodPut, path, body, result)
 }
 
 func (c *ZendeskClient) Patch(path string, body interface{}, result interface{}) error {
-	return c.doRequest(http.MethodPatch, path, body, result)
+	return c.doRequest("", http.MethodPatch, path, body, result)
 }
 
 func (c *ZendeskClient) Delete(path string) error {
-	return c.doRequest(http.MethodDelete, path, nil, nil)
+	return c.doRequest("", http.MethodDelete, path, nil, nil)
 }
 
 // valueToString converts an API value (which may be string, float64, bool, etc.) to a string.

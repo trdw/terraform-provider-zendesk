@@ -280,7 +280,20 @@ func (r *ViewResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	}
 
 	var result viewReadWrapper
-	err := r.client.Get(fmt.Sprintf("/api/v2/views/%s", state.ID.ValueString()), &result)
+	viewPath := fmt.Sprintf("/api/v2/views/%s", state.ID.ValueString())
+	var err error
+	// A user-restricted (personal) view is only returned by the API to its owner,
+	// even when fetched by id. The provider's static credentials can't see another
+	// agent's personal view, so read it authenticated as the owner (same token).
+	if state.Restriction != nil && state.Restriction.Type.ValueString() == "User" && !state.Restriction.ID.IsNull() {
+		if ownerEmail, e := r.client.UserEmail(state.Restriction.ID.ValueInt64()); e == nil && ownerEmail != "" {
+			err = r.client.GetAs(ownerEmail, viewPath, &result)
+		} else {
+			err = r.client.Get(viewPath, &result)
+		}
+	} else {
+		err = r.client.Get(viewPath, &result)
+	}
 	if err != nil {
 		if IsNotFound(err) {
 			resp.State.RemoveResource(ctx)
