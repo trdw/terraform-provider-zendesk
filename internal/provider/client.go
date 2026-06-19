@@ -288,6 +288,16 @@ func (c *ZendeskClient) GetAs(authEmail, path string, result interface{}) error 
 	return c.doRequest(authEmail, http.MethodGet, path, nil, result)
 }
 
+// PutAs / DeleteAs perform PUT/DELETE authenticated as authEmail (same token),
+// for updating/deleting user-restricted resources owned by another agent.
+func (c *ZendeskClient) PutAs(authEmail, path string, body interface{}, result interface{}) error {
+	return c.doRequest(authEmail, http.MethodPut, path, body, result)
+}
+
+func (c *ZendeskClient) DeleteAs(authEmail, path string) error {
+	return c.doRequest(authEmail, http.MethodDelete, path, nil, nil)
+}
+
 // UserEmail returns the email for a Zendesk user id (cached). Admins can read any
 // user, so this works with the static credentials.
 func (c *ZendeskClient) UserEmail(id int64) (string, error) {

@@ -272,6 +272,21 @@ func (r *ViewResource) Create(ctx context.Context, req resource.CreateRequest, r
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
+// ownerAuthEmail returns the email to authenticate as for a user-restricted view
+// (its owner). Zendesk only returns/accepts a personal view for its owner, even by
+// id, so read/update/delete of another agent's view must use the owner's creds
+// (same API token). Returns "" for shared views or if the owner can't be resolved.
+func (r *ViewResource) ownerAuthEmail(restriction *ViewRestrictionModel) string {
+	if restriction == nil || restriction.Type.ValueString() != "User" || restriction.ID.IsNull() {
+		return ""
+	}
+	email, err := r.client.UserEmail(restriction.ID.ValueInt64())
+	if err != nil {
+		return ""
+	}
+	return email
+}
+
 func (r *ViewResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var state ViewResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
@@ -282,15 +297,8 @@ func (r *ViewResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	var result viewReadWrapper
 	viewPath := fmt.Sprintf("/api/v2/views/%s", state.ID.ValueString())
 	var err error
-	// A user-restricted (personal) view is only returned by the API to its owner,
-	// even when fetched by id. The provider's static credentials can't see another
-	// agent's personal view, so read it authenticated as the owner (same token).
-	if state.Restriction != nil && state.Restriction.Type.ValueString() == "User" && !state.Restriction.ID.IsNull() {
-		if ownerEmail, e := r.client.UserEmail(state.Restriction.ID.ValueInt64()); e == nil && ownerEmail != "" {
-			err = r.client.GetAs(ownerEmail, viewPath, &result)
-		} else {
-			err = r.client.Get(viewPath, &result)
-		}
+	if as := r.ownerAuthEmail(state.Restriction); as != "" {
+		err = r.client.GetAs(as, viewPath, &result)
 	} else {
 		err = r.client.Get(viewPath, &result)
 	}
@@ -340,7 +348,15 @@ func (r *ViewResource) Update(ctx context.Context, req resource.UpdateRequest, r
 
 	apiReq := viewCreateWrapper{View: apiView}
 	var result viewReadWrapper
-	if err := r.client.Put(fmt.Sprintf("/api/v2/views/%s", state.ID.ValueString()), apiReq, &result); err != nil {
+	updPath := fmt.Sprintf("/api/v2/views/%s", state.ID.ValueString())
+	// the view currently belongs to its existing owner -> update as them
+	var err error
+	if as := r.ownerAuthEmail(state.Restriction); as != "" {
+		err = r.client.PutAs(as, updPath, apiReq, &result)
+	} else {
+		err = r.client.Put(updPath, apiReq, &result)
+	}
+	if err != nil {
 		resp.Diagnostics.AddError("Error updating view", err.Error())
 		return
 	}
@@ -356,7 +372,14 @@ func (r *ViewResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		return
 	}
 
-	if err := r.client.Delete(fmt.Sprintf("/api/v2/views/%s", state.ID.ValueString())); err != nil {
+	delPath := fmt.Sprintf("/api/v2/views/%s", state.ID.ValueString())
+	var err error
+	if as := r.ownerAuthEmail(state.Restriction); as != "" {
+		err = r.client.DeleteAs(as, delPath)
+	} else {
+		err = r.client.Delete(delPath)
+	}
+	if err != nil {
 		resp.Diagnostics.AddError("Error deleting view", err.Error())
 		return
 	}
